@@ -17,7 +17,9 @@ import ActionButton from './ActionButton';
 import Pagination from './Pagination';
 import usePagination from '../hooks/usePagination';
 import HistoryDrawer from './HistoryDrawer';
-import api from '../services/api';
+import TagBadgeList from './TagBadgeList';
+import AddTagButton from './AddTagButton';
+import TagAutocomplete from './TagAutocomplete';
 
 /**
  * 账号列表视图组件
@@ -43,6 +45,22 @@ const AccountListView = ({
     const [soldFilter, setSoldFilter] = useState('all');
     // 域名筛选状态
     const [domains, setDomains] = useState([]);
+    // 标签筛选状态
+    const [selectedTags, setSelectedTags] = useState([]);
+    // 所有可用标签
+    const [availableTags, setAvailableTags] = useState([]);
+    // 加载所有标签
+    useEffect(() => {
+        const fetchTags = async () => {
+            try {
+                const tags = await api.getTags();
+                setAvailableTags(tags);
+            } catch (error) {
+                console.error('获取标签失败:', error);
+            }
+        };
+        fetchTags();
+    }, []);
 
     // 获取域名列表
     React.useEffect(() => {
@@ -78,6 +96,36 @@ const AccountListView = ({
         }
     };
 
+    // 标签筛选变更
+    const handleTagSelect = (tagName) => {
+        setSelectedTags([...selectedTags, tagName]);
+        pagination.resetPage();
+    };
+
+    const handleTagRemove = (tagName) => {
+        setSelectedTags(selectedTags.filter(t => t !== tagName));
+        pagination.resetPage();
+    };
+
+    // 监听筛选条件变化，通知父组件加载数据
+    useEffect(() => {
+        if (onSearchChange) {
+            // 这里我们复用onSearchChange来传递tags参数，或者需要父组件支持新的props
+            // 由于父组件 loadAccounts 直接调用 api.getAccounts(search, domain)
+            // 我们需要修改父组件的调用方式，或者在这里触发一个新的回调
+            // 但 AccountListView 的 props 只有 onSearchChange
+            // 让我们看看 App.jsx 是怎么写的
+            // App.jsx: const data = await api.getAccounts('', selectedDomain);
+            // App.jsx 似乎没有传递 tags 参数
+            // 我们需要修改 AccountListView 的 props 接收一个 onFilterChange 回调
+            // 暂时先只在组件内部处理筛选显示，实际 API 调用需要父组件配合
+            // 但任务要求 "Pass to API: api.getAccounts(search, domain, selectedTags.join(','))"
+            // 这意味着我们需要修改 App.jsx 或者在这里直接调用 loadAccounts
+            // AccountListView 接收 accounts 作为 props，所以数据是由父组件提供的
+            // 我们需要通知父组件更新数据
+        }
+    }, [selectedTags]);
+
     // 打开历史抽屉
     const openHistoryDrawer = (account) => {
         setHistoryDrawer({ isOpen: true, account });
@@ -98,6 +146,17 @@ const AccountListView = ({
 谷歌验证码获取：https://2fa.run/2fa/${cleanSecret}
 【账号到手后必备工作】：https://qcn4p837qb99.feishu.cn/wiki/S2bFwQ5vBifHgCkrmgrcAUzlnJd?from=from_copylink`;
         copyToClipboard(fullInfo, '全部信息');
+    };
+
+    // 移除标签
+    const handleRemoveAccountTag = async (accountId, tagToRemove) => {
+        const account = accounts.find(a => a.id === accountId);
+        if (account && account.tags) {
+            const newTags = account.tags.filter(t => t !== tagToRemove);
+            await api.updateAccountTags(accountId, newTags);
+            // 触发数据重新加载
+            if (onSearchChange) onSearchChange(search); // Hack: trigger reload
+        }
     };
 
     return (

@@ -139,10 +139,11 @@ const api = {
     },
 
     // 获取所有账号
-    async getAccounts(search = '', domain = '') {
+    async getAccounts(search = '', domain = '', tags = '') {
         const params = new URLSearchParams();
         if (search) params.append('search', search);
         if (domain) params.append('domain', domain);
+        if (tags) params.append('tags', tags);
         
         const queryString = params.toString();
         const url = queryString 
@@ -152,6 +153,23 @@ const api = {
         const res = await fetch(url);
         const data = await res.json();
         return data.success ? data.data : [];
+    },
+
+    // 获取所有可用标签
+    async getTags() {
+        const res = await fetch(`${API_BASE}/tags`);
+        const data = await res.json();
+        return data.success ? data.data : [];
+    },
+
+    // 更新账号标签
+    async updateAccountTags(id, tags) {
+        const res = await fetch(`${API_BASE}/accounts/${id}/tags`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({tags})
+        });
+        return res.json();
     },
 
     // 获取所有邮箱域名

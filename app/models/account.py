@@ -35,6 +35,8 @@ class Account(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
+    tag_associations = db.relationship('AccountTag', back_populates='account', cascade='all, delete-orphan', lazy='dynamic')
+    
     def to_dict(self):
         """
         将模型转换为字典
@@ -42,6 +44,8 @@ class Account(db.Model):
         Returns:
             包含所有字段的字典
         """
+        tag_associations = self.tag_associations.all()
+        tags = [association.tag.name for association in tag_associations if association.tag]
         return {
             'id': self.id,
             'email': self.email,
@@ -51,7 +55,9 @@ class Account(db.Model):
             'remark': self.remark or '',
             'status': self.status,
             'soldStatus': self.sold_status or 'unsold',
-            'createdAt': self.created_at.strftime('%Y-%m-%d') if self.created_at else ''
+            'createdAt': self.created_at.strftime('%Y-%m-%d') if self.created_at else '',
+            'tag': tags[0] if tags else None,
+            'tags': tags
         }
     
     def __repr__(self):

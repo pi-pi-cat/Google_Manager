@@ -3,6 +3,8 @@ API 路由模块
 提供账号管理的 RESTful API
 """
 from flask import Blueprint, request, jsonify
+from sqlalchemy import func
+from app import db
 from app.services.account_service import AccountService
 from app.services.auth_service import AuthService
 from app.models.account_history import AccountHistory
@@ -12,8 +14,9 @@ api_bp = Blueprint('api', __name__)
 
 def get_client_ip():
     """获取客户端真实 IP"""
-    if request.headers.get('X-Forwarded-For'):
-        return request.headers.get('X-Forwarded-For').split(',')[0].strip()
+    forwarded_for = request.headers.get('X-Forwarded-For')
+    if forwarded_for:
+        return str(forwarded_for).split(',')[0].strip()
     return request.remote_addr or '127.0.0.1'
 
 
@@ -43,20 +46,47 @@ def get_accounts():
     Query Params:
         search: 搜索关键词（可选）
         domain: 邮箱域名（可选）
+        tags: 标签列表（逗号分隔，可选）
     
     Returns:
         账号列表
     """
     search = request.args.get('search', '')
     domain = request.args.get('domain', '')
+    tags = request.args.get('tags', '')
 
     try:
-        accounts = AccountService.get_all_accounts(search=search, domain=domain)
+        accounts = AccountService.get_all_accounts(search, domain, tags)
         return success_response(data=accounts)
     except ValueError as e:
         return error_response(str(e), 400)
     except Exception as e:
         return error_response(f'获取账号列表失败: {str(e)}', 500)
+
+
+@api_bp.route('/tags', methods=['GET'])
+def get_tags():
+    """
+    获取所有标签及使用次数
+
+    Returns:
+        标签列表（按使用次数降序）
+    """
+    try:
+        from ..models.tag import Tag
+        from ..models.account_tag import AccountTag
+
+        # 查询标签使用次数（包含未使用标签）
+        tags = db.session.query(
+            Tag.name.label('name'),
+            func.count(AccountTag.tag_id).label('count')
+        ).outerjoin(AccountTag, Tag.id == AccountTag.tag_id) \
+            .group_by(Tag.id) \
+            .order_by(func.count(AccountTag.tag_id).desc()).all()
+
+        return success_response(data=[{'name': item.name, 'count': item.count} for item in tags])
+    except Exception as e:
+        return error_response(f'获取标签列表失败: {str(e)}', 500)
 
 
 @api_bp.route('/accounts', methods=['POST'])
@@ -166,6 +196,58 @@ def update_account(account_id):
         return error_response(str(e))
     except Exception as e:
         return error_response(f'更新失败: {str(e)}', 500)
+
+
+@api_bp.route('/accounts/<int:account_id>/tags', methods=['PUT'])
+def update_account_tags(account_id):
+    """
+    更新账号标签列表
+
+    Path Params:
+        account_id: 账号ID
+
+    Request Body:
+        tags: 标签数组
+
+    Returns:
+        更新后的账号信息
+    """
+    data = request.get_json()
+    if not data or 'tags' not in data:
+        return error_response('请求数据格式错误')
+
+    tags = data.get('tags')
+    if not isinstance(tags, list):
+        return error_response('标签必须为数组')
+    if len(tags) > 10:
+        return error_response('标签数量不能超过 10 个')
+
+    # 参数校验与规范化
+    normalized_tags = []
+    seen = set()
+    for tag in tags:
+        if not isinstance(tag, str):
+            return error_response('标签必须为字符串')
+        normalized = tag.strip()
+        if not normalized:
+            return error_response('标签不能为空')
+        if len(normalized) > 64:
+            return error_response('标签长度不能超过 64 个字符')
+        key = normalized.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        normalized_tags.append(normalized)
+
+    try:
+        account = AccountService.update_account_tags(account_id, normalized_tags)
+        if account is None:
+            return error_response('账号不存在', 404)
+        return success_response(data=account, message='标签已更新')
+    except ValueError as e:
+        return error_response(str(e))
+    except Exception as e:
+        return error_response(f'更新标签失败: {str(e)}', 500)
 
 
 @api_bp.route('/accounts/<int:account_id>', methods=['DELETE'])
