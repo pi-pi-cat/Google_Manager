@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import api from '../services/api';
 import {
     Search,
     Mail,
@@ -30,6 +31,8 @@ const AccountListView = ({
     setSearch,
     selectedDomain,
     setSelectedDomain,
+    selectedTags,
+    onTagsChange,
     copyToClipboard,
     generate2FA,
     twoFACode,
@@ -45,8 +48,6 @@ const AccountListView = ({
     const [soldFilter, setSoldFilter] = useState('all');
     // 域名筛选状态
     const [domains, setDomains] = useState([]);
-    // 标签筛选状态
-    const [selectedTags, setSelectedTags] = useState([]);
     // 所有可用标签
     const [availableTags, setAvailableTags] = useState([]);
     // 加载所有标签
@@ -98,13 +99,15 @@ const AccountListView = ({
 
     // 标签筛选变更
     const handleTagSelect = (tagName) => {
-        setSelectedTags([...selectedTags, tagName]);
+        const newTags = [...selectedTags, tagName];
         pagination.resetPage();
+        if (onTagsChange) onTagsChange(newTags);
     };
 
     const handleTagRemove = (tagName) => {
-        setSelectedTags(selectedTags.filter(t => t !== tagName));
+        const newTags = selectedTags.filter(t => t !== tagName);
         pagination.resetPage();
+        if (onTagsChange) onTagsChange(newTags);
     };
 
     // 监听筛选条件变化，通知父组件加载数据
@@ -210,11 +213,31 @@ const AccountListView = ({
                 </div>
 
                 {/* 筛选按钮 */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 mb-4">
                     <div className="flex items-center gap-1">
                         <Filter size={16} className={darkMode ? 'text-slate-400' : 'text-slate-500'} />
                         <span className={`text-sm font-medium ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>筛选：</span>
                     </div>
+                    
+                    {/* Tag Filter */}
+                    <div className="w-64">
+                        <TagAutocomplete 
+                            availableTags={availableTags}
+                            selectedTags={selectedTags}
+                            onSelect={handleTagSelect}
+                            darkMode={darkMode}
+                            maxTags={5}
+                        />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        {selectedTags.map(tag => (
+                            <span key={tag} className={`inline-flex items-center gap-1 px-2 py-1 text-xs rounded ${darkMode ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-50 text-blue-600'}`}>
+                                {tag}
+                                <button onClick={() => handleTagRemove(tag)} className="hover:text-red-500">×</button>
+                            </span>
+                        ))}
+                    </div>
+
                     <div className={`flex gap-1 p-1 rounded-xl ${darkMode ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
                         <button
                             onClick={() => { setSoldFilter('all'); pagination.resetPage(); }}
@@ -257,6 +280,7 @@ const AccountListView = ({
                                     <th className="px-4 py-4 w-[120px]">2FA 验证</th>
                                     <th className="px-4 py-4 text-center w-[320px]">操作面板</th>
                                     <th className="px-4 py-4 text-center w-[80px]">出售</th>
+                                    <th className="px-4 py-4 w-[150px]">标签</th>
                                     <th className="px-4 py-4 w-[100px]">备注</th>
                                     <th className="px-4 py-4 w-[100px]">导入时间</th>
                                 </tr>
@@ -388,6 +412,23 @@ const AccountListView = ({
                                             >
                                                 {acc.soldStatus === 'sold' ? '已售出' : '未售出'}
                                             </button>
+                                        </td>
+                                        {/* 标签 */}
+                                        <td className="px-4 py-4">
+                                            <div className="flex flex-col gap-1">
+                                                <TagBadgeList 
+                                                    tags={acc.tags || []} 
+                                                    onRemove={(tag) => handleRemoveAccountTag(acc.id, tag)} 
+                                                    darkMode={darkMode} 
+                                                />
+                                                <AddTagButton 
+                                                    accountId={acc.id} 
+                                                    existingTags={acc.tags || []} 
+                                                    onUpdate={() => onSearchChange && onSearchChange(search)} 
+                                                    darkMode={darkMode} 
+                                                    api={api}
+                                                />
+                                            </div>
                                         </td>
                                         {/* 备注 */}
                                         <td className="px-4 py-4">

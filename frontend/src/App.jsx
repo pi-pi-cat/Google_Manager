@@ -21,6 +21,7 @@ const App = () => {
     const [accounts, setAccounts] = useState([]);
     const [search, setSearch] = useState('');
     const [selectedDomain, setSelectedDomain] = useState('');
+    const [selectedTags, setSelectedTags] = useState([]);
     const [notification, setNotification] = useState(null);
     const [loading, setLoading] = useState(true);
 
@@ -65,12 +66,12 @@ const App = () => {
     // --- 加载账号数据 ---
     useEffect(() => {
         loadAccounts();
-    }, [selectedDomain]);
+    }, [selectedDomain, selectedTags]);
 
     const loadAccounts = async () => {
         try {
             setLoading(true);
-            const data = await api.getAccounts('', selectedDomain);
+            const data = await api.getAccounts('', selectedDomain, selectedTags.join(','));
             setAccounts(data);
         } catch (error) {
             console.error('加载账号失败:', error);
@@ -332,6 +333,8 @@ const App = () => {
                         setSearch={setSearch}
                         selectedDomain={selectedDomain}
                         setSelectedDomain={setSelectedDomain}
+                        selectedTags={selectedTags}
+                        onTagsChange={setSelectedTags}
                         copyToClipboard={copyToClipboard}
                         generate2FA={generate2FA}
                         twoFACode={twoFACode}
