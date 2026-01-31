@@ -1,15 +1,19 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Check, ChevronDown, Search } from 'lucide-react';
+import { Check, ChevronDown, Plus, Search } from 'lucide-react';
 
 export default function TagCheckboxSelector({ 
   availableTags = [], 
   selectedTags = [], 
   onToggle, 
+  onCreate,
   darkMode,
   maxSelections = 10,
   excludeTags = [],
   buttonText = "选择标签",
-  placeholder = "搜索标签..."
+  placeholder = "搜索标签...",
+  trigger,
+  allowCustom = false,
+  closeOnSelect = false
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -17,17 +21,19 @@ export default function TagCheckboxSelector({
   
   // Close on outside click
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.current)) {
+    if (!isOpen) return;
+    const handlePointerDown = (event) => {
+      if (!dropdownRef.current) return;
+      if (!dropdownRef.current.contains(event.target)) {
         setIsOpen(false);
+        setSearchTerm('');
       }
     };
-    
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('pointerdown', handlePointerDown);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('pointerdown', handlePointerDown);
     };
-  }, []);
+  }, [isOpen]);
   
   // Filter available tags
   const filteredTags = availableTags.filter(tag => {
@@ -38,21 +44,45 @@ export default function TagCheckboxSelector({
     return true;
   });
 
+  const normalizedInput = searchTerm.trim();
+  const canCreate = allowCustom
+    && normalizedInput
+    && !excludeTags.includes(normalizedInput)
+    && !selectedTags.includes(normalizedInput)
+    && !availableTags.some(t => t.name === normalizedInput);
+
+  const handleCreate = () => {
+    if (!canCreate) return;
+    const createFn = onCreate || onToggle;
+    if (!createFn) return;
+    createFn(normalizedInput);
+    if (closeOnSelect) {
+      setIsOpen(false);
+      setSearchTerm('');
+    }
+  };
+
   return (
     <div className="relative" ref={dropdownRef}>
-      <button 
-        onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg border transition-all w-full text-left ${
-          darkMode 
-            ? 'bg-slate-800 border-slate-700 text-slate-200 hover:border-slate-600' 
-            : 'bg-white border-slate-200 text-slate-700 hover:border-blue-300'
-        }`}
-      >
-        <span className="truncate text-sm font-medium">
-          {selectedTags.length > 0 ? `已选 ${selectedTags.length} 个标签` : buttonText}
-        </span>
-        <ChevronDown size={14} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-      </button>
+      {trigger ? (
+        <div onClick={() => setIsOpen(!isOpen)} className="inline-block cursor-pointer">
+          {trigger}
+        </div>
+      ) : (
+        <button 
+          onClick={() => setIsOpen(!isOpen)}
+          className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg border transition-all w-full text-left ${
+            darkMode 
+              ? 'bg-slate-800 border-slate-700 text-slate-200 hover:border-slate-600' 
+              : 'bg-white border-slate-200 text-slate-700 hover:border-blue-300'
+          }`}
+        >
+          <span className="truncate text-sm font-medium">
+            {selectedTags.length > 0 ? `已选 ${selectedTags.length} 个标签` : buttonText}
+          </span>
+          <ChevronDown size={14} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        </button>
+      )}
       
       {isOpen && (
         <div className={`absolute z-50 mt-1 w-full min-w-[240px] rounded-xl shadow-xl border overflow-hidden animate-in fade-in zoom-in-95 duration-200 ${
@@ -66,6 +96,22 @@ export default function TagCheckboxSelector({
                 type="text" 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (canCreate) {
+                      handleCreate();
+                      return;
+                    }
+                    if (filteredTags.length > 0 && onToggle) {
+                      onToggle(filteredTags[0].name);
+                      if (closeOnSelect) {
+                        setIsOpen(false);
+                        setSearchTerm('');
+                      }
+                    }
+                  }
+                }}
                 placeholder={placeholder}
                 className={`w-full pl-9 pr-3 py-1.5 text-sm rounded-lg outline-none transition-colors ${
                   darkMode 
@@ -76,6 +122,22 @@ export default function TagCheckboxSelector({
               />
             </div>
           </div>
+
+          {canCreate && (
+            <button
+              type="button"
+              onClick={handleCreate}
+              className={`w-full px-3 py-2 flex items-center gap-2 text-sm border-b transition-colors ${
+                darkMode
+                  ? 'border-slate-700 text-slate-200 hover:bg-slate-700'
+                  : 'border-slate-100 text-slate-700 hover:bg-blue-50'
+              }`}
+            >
+              <Plus size={14} className={darkMode ? 'text-blue-400' : 'text-blue-600'} />
+              <span className="truncate">添加标签：{normalizedInput}</span>
+              <span className={`ml-auto text-xs ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>Enter</span>
+            </button>
+          )}
           
           {/* Tag List */}
           <div className="max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-rounded scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-600">
@@ -86,12 +148,24 @@ export default function TagCheckboxSelector({
                   const isDisabled = !isSelected && selectedTags.length >= maxSelections;
                   
                   return (
-                    <label 
-                      key={tag.name} 
+                    <label
+                      key={tag.name}
+                      onPointerDown={(e) => {
+                        // Select on pointer-down so clicks work even if focus/blur or outside handlers
+                        // would close the dropdown before onClick fires.
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (isDisabled) return;
+                        if (onToggle) onToggle(tag.name);
+                        if (closeOnSelect) {
+                          setIsOpen(false);
+                          setSearchTerm('');
+                        }
+                      }}
                       className={`flex items-center justify-between p-2 rounded-lg cursor-pointer text-sm transition-colors ${
-                        isDisabled ? 'opacity-50 cursor-not-allowed' : 
-                        darkMode 
-                          ? 'hover:bg-slate-700' 
+                        isDisabled ? 'opacity-50 cursor-not-allowed' :
+                        darkMode
+                          ? 'hover:bg-slate-700'
                           : 'hover:bg-blue-50'
                       }`}
                     >
@@ -113,12 +187,12 @@ export default function TagCheckboxSelector({
                         {tag.count}
                       </span>
                       
-                      {/* Hidden actual checkbox */}
-                      <input 
+                      {/* Hidden actual checkbox (display-only) */}
+                      <input
                         type="checkbox"
                         className="hidden"
                         checked={isSelected}
-                        onChange={() => !isDisabled && onToggle(tag.name)}
+                        readOnly
                         disabled={isDisabled}
                       />
                     </label>

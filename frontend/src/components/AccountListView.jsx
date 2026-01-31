@@ -436,6 +436,7 @@ const AccountListView = ({
                                                 <AddTagButton 
                                                     accountId={acc.id} 
                                                     existingTags={acc.tags || []} 
+                                                    availableTags={availableTags}
                                                     onUpdate={(id, data) => handleAccountUpdate(id, data)} 
                                                     darkMode={darkMode} 
                                                     api={api}
