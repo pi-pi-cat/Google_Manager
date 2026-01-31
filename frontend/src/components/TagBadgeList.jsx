@@ -1,3 +1,5 @@
+import React from 'react';
+
 export default function TagBadgeList({ tags, onRemove, darkMode }) {
     return (
         <div className="flex flex-wrap gap-1">
