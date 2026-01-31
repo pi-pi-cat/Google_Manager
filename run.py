@@ -2,14 +2,13 @@
 应用启动入口
 """
 import os
+
+# 确保 instance 目录存在且具有适当的权限 BEFORE app init
+# 使用 mode=0o777 以获得完全权限，exist_ok=True 以防止目录已存在时出错
+os.makedirs('instance', mode=0o777, exist_ok=True)
+
 from app import create_app
 
-# 确保实例目录存在
-instance_path = os.path.join(os.path.dirname(__file__), 'instance')
-if not os.path.exists(instance_path):
-    os.makedirs(instance_path)
-
-# 创建应用实例
 app = create_app()
 
 if __name__ == '__main__':

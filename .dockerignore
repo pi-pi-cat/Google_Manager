@@ -1,0 +1,43 @@
+
+# Dependencies
+node_modules/
+venv/
+env/
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# Build output
+static/
+instance/
+
+# Logs
+*.log
+
+# Environment
+.env.local
+
+# Documentation
+*.md
+AGENTS.md
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# OS
+.DS_Store

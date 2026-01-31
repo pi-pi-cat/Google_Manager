@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: google-manager
+    ports:
+      - "8002:8002"
+    restart: unless-stopped
+    environment:
+      - FLASK_ENV=production
