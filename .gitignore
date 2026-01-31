@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+*.egg-info/
+.eggs/
+*.egg
+
+# 本地数据库与运行时（instance/ 由 Flask 自动创建）
+instance/
+
+# 环境与密钥
+.env
+.env.*
+!.env.example
+
+# Node / 前端
+node_modules/
+frontend/node_modules/
+dist/
+build/
+*.local
+
+# 日志与临时
+logs/
+*.log
+.cache/
+
+# IDE / 编辑器
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# 系统
+.DS_Store
+Thumbs.db
+
+# 测试与覆盖率
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+
+# 可选：若不想提交构建产物可取消注释
+static/assets/
+static/index.html
+
+.sisyphus/

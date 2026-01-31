@@ -17,6 +17,7 @@ import ActionButton from './ActionButton';
 import Pagination from './Pagination';
 import usePagination from '../hooks/usePagination';
 import HistoryDrawer from './HistoryDrawer';
+import api from '../services/api';
 
 /**
  * 账号列表视图组件
@@ -25,6 +26,8 @@ const AccountListView = ({
     accounts,
     search,
     setSearch,
+    selectedDomain,
+    setSelectedDomain,
     copyToClipboard,
     generate2FA,
     twoFACode,
@@ -38,6 +41,21 @@ const AccountListView = ({
 }) => {
     // 筛选状态: 'all' | 'sold' | 'unsold'
     const [soldFilter, setSoldFilter] = useState('all');
+    // 域名筛选状态
+    const [domains, setDomains] = useState([]);
+
+    // 获取域名列表
+    React.useEffect(() => {
+        const fetchDomains = async () => {
+            try {
+                const data = await api.getDomains();
+                setDomains(data);
+            } catch (error) {
+                console.error('获取域名列表失败:', error);
+            }
+        };
+        fetchDomains();
+    }, []);
 
     // 根据筛选过滤账号
     const filteredAccounts = useMemo(() => {
@@ -102,6 +120,34 @@ const AccountListView = ({
                                 : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400'} border`}
                         />
                     </div>
+                </div>
+
+                {/* 域名筛选按钮 */}
+                <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                    <button
+                        onClick={() => setSelectedDomain('')}
+                        className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all whitespace-nowrap flex-shrink-0 ${selectedDomain === ''
+                            ? (darkMode ? 'bg-blue-600 text-white shadow' : 'bg-blue-500 text-white shadow')
+                            : (darkMode ? 'bg-slate-800 text-slate-400 hover:bg-slate-700' : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-200')}`}
+                    >
+                        全部
+                    </button>
+                    {domains.map(d => (
+                        <button
+                            key={d.domain}
+                            onClick={() => setSelectedDomain(d.domain)}
+                            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all whitespace-nowrap flex-shrink-0 flex items-center gap-1 ${selectedDomain === d.domain
+                                ? (darkMode ? 'bg-blue-600 text-white shadow' : 'bg-blue-500 text-white shadow')
+                                : (darkMode ? 'bg-slate-800 text-slate-400 hover:bg-slate-700' : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-200')}`}
+                        >
+                            <span>{d.domain}</span>
+                            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${selectedDomain === d.domain 
+                                ? 'bg-white/20' 
+                                : (darkMode ? 'bg-slate-700' : 'bg-slate-100')}`}>
+                                {d.count}
+                            </span>
+                        </button>
+                    ))}
                 </div>
 
                 {/* 筛选按钮 */}

@@ -139,11 +139,24 @@ const api = {
     },
 
     // 获取所有账号
-    async getAccounts(search = '') {
-        const url = search
-            ? `${API_BASE}/accounts?search=${encodeURIComponent(search)}`
+    async getAccounts(search = '', domain = '') {
+        const params = new URLSearchParams();
+        if (search) params.append('search', search);
+        if (domain) params.append('domain', domain);
+        
+        const queryString = params.toString();
+        const url = queryString 
+            ? `${API_BASE}/accounts?${queryString}`
             : `${API_BASE}/accounts`;
+            
         const res = await fetch(url);
+        const data = await res.json();
+        return data.success ? data.data : [];
+    },
+
+    // 获取所有邮箱域名
+    async getDomains() {
+        const res = await fetch(`${API_BASE}/accounts/domains`);
         const data = await res.json();
         return data.success ? data.data : [];
     },

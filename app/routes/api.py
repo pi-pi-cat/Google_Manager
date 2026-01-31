@@ -42,13 +42,21 @@ def get_accounts():
     
     Query Params:
         search: 搜索关键词（可选）
+        domain: 邮箱域名（可选）
     
     Returns:
         账号列表
     """
     search = request.args.get('search', '')
-    accounts = AccountService.get_all_accounts(search)
-    return success_response(data=accounts)
+    domain = request.args.get('domain', '')
+
+    try:
+        accounts = AccountService.get_all_accounts(search=search, domain=domain)
+        return success_response(data=accounts)
+    except ValueError as e:
+        return error_response(str(e), 400)
+    except Exception as e:
+        return error_response(f'获取账号列表失败: {str(e)}', 500)
 
 
 @api_bp.route('/accounts', methods=['POST'])
@@ -81,6 +89,21 @@ def create_account():
         return error_response(str(e))
     except Exception as e:
         return error_response(f'创建失败: {str(e)}', 500)
+
+
+@api_bp.route('/accounts/domains', methods=['GET'])
+def get_account_domains():
+    """
+    获取账号邮箱域名及数量
+    
+    Returns:
+        域名列表，按数量降序、域名升序
+    """
+    try:
+        domains = AccountService.get_domains()
+        return success_response(data=domains)
+    except Exception as e:
+        return error_response(f'获取域名列表失败: {str(e)}', 500)
 
 
 @api_bp.route('/accounts/batch', methods=['POST'])

@@ -2,6 +2,8 @@
 账号服务模块
 提供账号相关的业务逻辑处理
 """
+import re
+from sqlalchemy import func
 from app import db
 from app.models.account import Account
 from app.models.account_history import AccountHistory
@@ -12,18 +14,31 @@ class AccountService:
     """账号服务类"""
     
     @staticmethod
-    def get_all_accounts(search=''):
+    def get_all_accounts(search='', domain=''):
         """
-        获取所有账号（支持搜索）
+        获取所有账号（支持搜索与域名过滤）
         
         Args:
             search: 搜索关键词
+            domain: 邮箱域名过滤（可选）
         
         Returns:
             账号字典列表
         """
         query = Account.query
-        
+        domain_expr = None
+
+        if domain:
+            normalized_domain = AccountService.normalize_domain(domain)
+            domain_expr = AccountService._domain_expression()
+            query = query.filter(
+                Account.email.isnot(None),
+                Account.email != '',
+                Account.email.contains('@'),
+                domain_expr != '',
+                domain_expr == normalized_domain
+            )
+
         if search:
             search_pattern = f'%{search}%'
             query = query.filter(
@@ -32,9 +47,63 @@ class AccountService:
                     Account.remark.ilike(search_pattern)
                 )
             )
-        
+
         accounts = query.order_by(Account.created_at.asc()).all()
         return [acc.to_dict() for acc in accounts]
+
+    @staticmethod
+    def _domain_expression():
+        """计算邮箱域名的 SQL 表达式（SQLite 兼容）"""
+        return func.lower(func.substr(Account.email, func.instr(Account.email, '@') + 1))
+
+    @staticmethod
+    def normalize_domain(domain):
+        """规范化并验证域名，返回小写域名或抛出 ValueError"""
+        normalized = (domain or '').strip().lower()
+
+        if not normalized:
+            raise ValueError('域名不能为空')
+        if ' ' in normalized:
+            raise ValueError('域名不能包含空格')
+        if '@' in normalized or '/' in normalized:
+            raise ValueError('域名格式不正确')
+        if len(normalized) > 253:
+            raise ValueError('域名长度不能超过 253 个字符')
+        if '..' in normalized:
+            raise ValueError('域名格式不正确')
+        if normalized[0] in '.-' or normalized[-1] in '.-':
+            raise ValueError('域名格式不正确')
+        if not re.fullmatch(r'[a-z0-9.-]+', normalized):
+            raise ValueError('域名包含非法字符')
+
+        return normalized
+    
+    @staticmethod
+    def get_domains():
+        """获取域名列表及数量，按数量倒序、域名升序"""
+        domain_expr = AccountService._domain_expression()
+        query = Account.query.filter(
+            Account.email.isnot(None),
+            Account.email != '',
+            Account.email.contains('@'),
+            domain_expr != ''
+        )
+
+        domains = query.with_entities(
+            domain_expr.label('domain'),
+            func.count(Account.id).label('count')
+        ).group_by(domain_expr).order_by(
+            func.count(Account.id).desc(),
+            domain_expr.asc()
+        ).all()
+
+        return [
+            {
+                'domain': item.domain,
+                'count': item.count
+            }
+            for item in domains
+        ]
     
     @staticmethod
     def get_account_by_id(account_id):
