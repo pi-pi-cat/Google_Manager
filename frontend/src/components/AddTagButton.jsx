@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import TagAutocomplete from './TagAutocomplete';
+import TagCheckboxSelector from './TagCheckboxSelector';
 
 export default function AddTagButton({ accountId, existingTags, onUpdate, darkMode, api }) {
     const [show, setShow] = useState(false);
@@ -11,11 +11,13 @@ export default function AddTagButton({ accountId, existingTags, onUpdate, darkMo
         }
     }, [show, api]);
     
-    const handleSelect = async (tagName) => {
+    const handleToggle = async (tagName) => {
         const newTags = [...existingTags, tagName];
-        await api.updateAccountTags(accountId, newTags);
-        onUpdate();
-        setShow(false);
+        const result = await api.updateAccountTags(accountId, newTags);
+        if (result.success) {
+            onUpdate(accountId, result.data);
+            setShow(false);
+        }
     };
     
     return (
@@ -27,12 +29,14 @@ export default function AddTagButton({ accountId, existingTags, onUpdate, darkMo
                 +
             </button>
             {show && (
-                <div className={`absolute z-20 mt-1 p-3 w-64 rounded-lg shadow-lg ${darkMode ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200'}`}>
-                    <TagAutocomplete
+                <div className={`absolute z-20 mt-1 left-0 w-64 ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
+                    <TagCheckboxSelector
                         availableTags={availableTags}
-                        selectedTags={existingTags}
-                        onSelect={handleSelect}
+                        selectedTags={[]}
+                        onToggle={handleToggle}
                         darkMode={darkMode}
+                        excludeTags={existingTags}
+                        buttonText="添加标签"
                     />
                 </div>
             )}

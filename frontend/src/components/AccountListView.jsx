@@ -20,7 +20,7 @@ import usePagination from '../hooks/usePagination';
 import HistoryDrawer from './HistoryDrawer';
 import TagBadgeList from './TagBadgeList';
 import AddTagButton from './AddTagButton';
-import TagAutocomplete from './TagAutocomplete';
+import TagCheckboxSelector from './TagCheckboxSelector';
 
 /**
  * 账号列表视图组件
@@ -42,7 +42,8 @@ const AccountListView = ({
     onDelete,
     loading,
     onSearchChange,
-    darkMode
+    darkMode,
+    onAccountUpdate
 }) => {
     // 筛选状态: 'all' | 'sold' | 'unsold'
     const [soldFilter, setSoldFilter] = useState('all');
@@ -98,8 +99,11 @@ const AccountListView = ({
     };
 
     // 标签筛选变更
-    const handleTagSelect = (tagName) => {
-        const newTags = [...selectedTags, tagName];
+    const handleTagToggle = (tagName) => {
+        const isSelected = selectedTags.includes(tagName);
+        const newTags = isSelected 
+            ? selectedTags.filter(t => t !== tagName)
+            : [...selectedTags, tagName];
         pagination.resetPage();
         if (onTagsChange) onTagsChange(newTags);
     };
@@ -156,9 +160,24 @@ const AccountListView = ({
         const account = accounts.find(a => a.id === accountId);
         if (account && account.tags) {
             const newTags = account.tags.filter(t => t !== tagToRemove);
-            await api.updateAccountTags(accountId, newTags);
-            // 触发数据重新加载
-            if (onSearchChange) onSearchChange(search); // Hack: trigger reload
+            const result = await api.updateAccountTags(accountId, newTags);
+            
+            // 立即更新状态
+            if (result.success && onAccountUpdate) {
+                onAccountUpdate(accountId, result.data);
+            } else if (onSearchChange) {
+                // 回退方案：重新加载
+                onSearchChange(search);
+            }
+        }
+    };
+
+    // 账号标签更新回调
+    const handleAccountUpdate = (accountId, updatedAccount) => {
+        if (onAccountUpdate) {
+            onAccountUpdate(accountId, updatedAccount);
+        } else if (onSearchChange) {
+            onSearchChange(search);
         }
     };
 
@@ -213,29 +232,22 @@ const AccountListView = ({
                 </div>
 
                 {/* 筛选按钮 */}
-                <div className="flex items-center gap-2 mb-4">
+                <div className="flex flex-wrap items-center gap-2 mb-4">
                     <div className="flex items-center gap-1">
                         <Filter size={16} className={darkMode ? 'text-slate-400' : 'text-slate-500'} />
                         <span className={`text-sm font-medium ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>筛选：</span>
                     </div>
                     
                     {/* Tag Filter */}
-                    <div className="w-64">
-                        <TagAutocomplete 
+                    <div className="min-w-[180px]">
+                        <TagCheckboxSelector 
                             availableTags={availableTags}
                             selectedTags={selectedTags}
-                            onSelect={handleTagSelect}
+                            onToggle={handleTagToggle}
                             darkMode={darkMode}
-                            maxTags={5}
+                            maxSelections={10}
+                            buttonText="选择标签筛选"
                         />
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                        {selectedTags.map(tag => (
-                            <span key={tag} className={`inline-flex items-center gap-1 px-2 py-1 text-xs rounded ${darkMode ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-50 text-blue-600'}`}>
-                                {tag}
-                                <button onClick={() => handleTagRemove(tag)} className="hover:text-red-500">×</button>
-                            </span>
-                        ))}
                     </div>
 
                     <div className={`flex gap-1 p-1 rounded-xl ${darkMode ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
@@ -424,7 +436,7 @@ const AccountListView = ({
                                                 <AddTagButton 
                                                     accountId={acc.id} 
                                                     existingTags={acc.tags || []} 
-                                                    onUpdate={() => onSearchChange && onSearchChange(search)} 
+                                                    onUpdate={(id, data) => handleAccountUpdate(id, data)} 
                                                     darkMode={darkMode} 
                                                     api={api}
                                                 />

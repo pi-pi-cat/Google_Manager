@@ -171,6 +171,10 @@ const App = () => {
         }
     };
 
+    const handleAccountUpdate = (accountId, updatedAccount) => {
+        setAccounts(accounts.map(a => a.id === accountId ? updatedAccount : a));
+    };
+
     // --- Handlers ---
     const handleDelete = async () => {
         try {
@@ -344,6 +348,7 @@ const App = () => {
                         onDelete={setDeletingId}
                         loading={loading}
                         darkMode={darkMode}
+                        onAccountUpdate={handleAccountUpdate}
                     />
                 ) : (
                     <ImportView onImport={handleImport} onCancel={() => setView('list')} darkMode={darkMode} />
